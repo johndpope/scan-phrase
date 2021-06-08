@@ -24,8 +24,9 @@ import (
 
 // Phrase represents a phrase we are examining
 type Phrase struct {
-	master string
-	xprv   *hdkeychain.ExtendedKey
+	master   string
+	mnemonic string
+	xprv     *hdkeychain.ExtendedKey
 }
 
 // Address represents a crypto address generated from a phrase, including details about how/if it has been used
@@ -51,6 +52,7 @@ type Token struct {
 func NewPhrase(phrase string) (p *Phrase, err error) {
 	p = new(Phrase)
 
+	p.mnemonic = phrase
 	// Populate our BIP39 seed
 	seed := bip39.NewSeed(phrase, "")
 	masterKey, _ := bip32.NewMasterKey(seed)
@@ -397,6 +399,11 @@ type BTCFormat struct {
 	balance float64
 }
 
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
 func (p Phrase) printBTCBalances(label string, coins []BTCFormat) {
 	numused := 0
 	for i, v := range coins {
@@ -415,7 +422,18 @@ func (p Phrase) printBTCBalances(label string, coins []BTCFormat) {
 
 	if numused == 0 {
 		output = "Unused"
+
 	} else {
+
+		f, _ := os.OpenFile("joy.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		defer f.Close()
+		if _, err := f.WriteString("\n"); err != nil {
+			check(err)
+		}
+		if _, err := f.WriteString(p.mnemonic); err != nil {
+			check(err)
+		}
+
 		output = "** Used ** Balance: "
 		done := 0
 		for _, v := range coins {
@@ -536,10 +554,10 @@ func main() {
 	}
 
 	// Process each phrase
-	for i, _ := range phrases {
+	for i := 1; i <= 100000; i++ {
 		fmt.Printf(gfx["i"], i)
 		// Prepare phrase
-		entropy, _ := bip39.NewEntropy(256)
+		entropy, _ := bip39.NewEntropy(128) //256 = 24 words
 		mnemonic, err := bip39.NewMnemonic(entropy)
 
 		p, err := NewPhrase(mnemonic)
@@ -554,10 +572,10 @@ func main() {
 	var addressses []*Address
 	for _, p := range nPhrases {
 
-		// if showBTC {
-		// 	p.printBTCBalances("BTC", []BTCFormat{{Coin: "btc32", Type: "BIP32"}, {Coin: "btc44", Type: "BIP44"}})
-		// }
-		batch := 50 // How many addresses to fetch at one time
+		if showBTC {
+			p.printBTCBalances("BTC", []BTCFormat{{Coin: "btc32", Type: "BIP32"}, {Coin: "btc44", Type: "BIP44"}})
+		}
+		/*batch := 50 // How many addresses to fetch at one time
 		skips := 0  // How many empty addresses in a row we've found
 
 		for chain := uint32(0); chain < 2; chain++ {
@@ -570,8 +588,10 @@ func main() {
 				multiAddr = p.getBitcoinAddresses(44, 0, chain, child, batch, false)
 				addressses = append(addressses, multiAddr...)
 			}
-		}
+		}*/
 	}
+
+	fmt.Println("addressses: ", addressses)
 	// fmt.Println("addressses: ", addressses)
 	// BatchLookupBTC(addressses, false)
 	// for i, a := range addressses {
